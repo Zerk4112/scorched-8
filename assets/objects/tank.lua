@@ -5,17 +5,28 @@ tanks = {}
 tank_sprites = {1,2,3,4}
 function create_tank(x,y)
     local tank = {
+        type=0,
         id=#tanks+1,
         x=x,
         y=y,
         dx=0,
         dy=0,
-        cx=3,
-        cy=3,
-        mspd=1,
+        w=4,
+        h=4,
+        cx=1,
+        cy=0,
+        colx=1,
+        coly=3,
+        colx2=3,
+        coly2=3,
+        mspd=0.2,
         angle=0,
+        fuel=50,
+        max_fuel=50,
+        falling=false,
+        y_started_falling=0,
         -- sprite=tank_sprites[flr(rnd(#tank_sprites)+1)],
-        sprite=3,
+        sprite=5,
         sprite_flip=false,
         update = make_cr(update_tank),
         draw = make_cr(draw_tank, aroutines),
@@ -47,6 +58,8 @@ function draw_tank(tank)
 end
 
 function draw_tank_sprite(tank)
+    local x = tank.x
+    if tank.sprite_flip then x-=5 end
     if debug then
         local angle
         if tank.sprite_flip then 
@@ -54,10 +67,13 @@ function draw_tank_sprite(tank)
         else    
             angle = map_range(tank.angle,0,0.5,0,90)
         end
-        print("angle: "..round_float(angle,2).." sprite_flip: "..tostr(tank.sprite_flip),tank.x+4,tank.y-8,7)
+        print("fuel: "..tank.fuel,tank.x,tank.y-10,7)
     end
-    spr(tank.sprite,tank.x,tank.y,1,1,tank.sprite_flip)
+
+    spr(tank.sprite,x,tank.y,1,1,tank.sprite_flip)
     draw_tank_crosshair(tank)
+    pset(tank.x+tank.colx,tank.y+tank.coly,8)
+    pset(tank.x+tank.colx2,tank.y+tank.coly2,10)
 
 end
 
@@ -66,9 +82,20 @@ function draw_tank_crosshair(tank)
     local y = tank.y + tank.cy
     local angle = tank.angle
     -- local r = 8
-    local x2 = x + cos(angle)*5
-    local y2 = y + sin(angle)*5
-    line(x,y,x2,y2,7)
+    local x2 = x + cos(angle)*3
+    local y2 = y + sin(angle)*3
+    line(x,y,x2,y2,1)
+    pset(x2,y2,6)
+end
+
+function handle_fuel(tank)
+    if tank.fuel > 0 then
+        tank.fuel -= 0.1
+        return true
+    else
+        tank.fuel = 0
+    end
+    return false
 end
 
 function control_tank(tank)
@@ -85,15 +112,20 @@ function control_tank(tank)
         end
     else
         -- If O button is not held, then control the tanks movement
-        if btn(0) then 
-            tank.sprite_flip=true
-            tank.dx = -tank.mspd
-        elseif btn(1) then 
-            tank.sprite_flip=false
-            tank.dx = tank.mspd
-        else 
+        if not tank.falling then
+            if btn(0) and handle_fuel(tank) then 
+                tank.sprite_flip=true
+                tank.dx = -tank.mspd
+            elseif btn(1) and handle_fuel(tank) then 
+                tank.sprite_flip=false
+                tank.dx = tank.mspd
+            else 
+                tank.dx = 0
+            end
+        else
             tank.dx = 0
         end
+        
 
         -- If the tank's direction has changed, reverse the angle.
         if prev_direction ~= tank.sprite_flip then
@@ -103,14 +135,12 @@ function control_tank(tank)
         end
 
         if btn(2) then
-            tank.dy = -tank.mspd
+            tank.dy = -1
         elseif btn(3) then
             tank.dy = tank.mspd
         else
             tank.dy = 0
         end
-        
-
     end
     tank.angle%=1
     if tank.angle > 0.5 then tank.angle -=0.5 tank.sprite_flip = not tank.sprite_flip end
@@ -122,11 +152,11 @@ function control_tank(tank)
 end
 
 function move_tank(tank)
-    tank.x += tank.dx
-    tank.y += tank.dy
+    poke_phys(tank)
     if tank.sprite_flip then
-        tank.cx = 4
+        tank.colx2 = -1
     else
-        tank.cx = 3
+        tank.colx2 = 3
     end
 end
+
